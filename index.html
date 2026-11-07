@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pet Therapy Self-Check</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#e3f2fd; margin:0; padding:20px; }
+  #game { max-width:680px; margin:auto; background:#fff; border-radius:16px; padding:24px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+  h1 { color:#1565c0; text-align:center; }
+  #progress { color:#555; text-align:center; }
+  #question { font-size:1.2em; margin:18px 0; }
+  .tag { display:inline-block; background:#bbdefb; color:#0d47a1; border-radius:8px; padding:2px 10px; font-size:.8em; margin-bottom:6px; }
+  button.choice { display:block; width:100%; margin:8px 0; padding:12px; font-size:1em; text-align:left; border:2px solid #90caf9; border-radius:10px; background:#f5faff; cursor:pointer; }
+  button.choice:hover { background:#e1f0ff; }
+  .correct { background:#a5d6a7 !important; }
+  .wrong { background:#ef9a9a !important; }
+  #feedback { min-height:48px; margin:12px 0; font-weight:bold; }
+  .btn { padding:10px 24px; font-size:1em; background:#1565c0; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:8px; }
+  textarea { width:100%; box-sizing:border-box; height:90px; font-size:1em; padding:8px; margin:6px 0 12px; }
+  #model { display:none; background:#fff8e1; border-left:6px solid #ffb300; padding:12px; margin-top:12px; }
+  select { font-size:1em; margin:4px 0 10px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>🐾 Pet Therapy Self-Check</h1>
+  <div id="progress"></div>
+  <div id="quiz">
+    <div id="tag" class="tag"></div>
+    <div id="question"></div>
+    <div id="choices"></div>
+    <div id="feedback"></div>
+    <button class="btn hidden" id="next">Next →</button>
+  </div>
+
+  <div id="exit" class="hidden">
+    <h2>Exit Ticket</h2>
+    <p><b>1.</b> State the central idea of "Pet Therapy: How Animals and Humans Heal Each Other" in one sentence.</p>
+    <textarea id="a1" placeholder="Type your central idea..."></textarea>
+    <p><b>2.</b> Choose the strongest evidence from the article. Cite the detail and explain why it is the strongest.</p>
+    <textarea id="a2" placeholder="Type your evidence and explanation..."></textarea>
+    <button class="btn" id="showModel">Check my answers</button>
+    <div id="model">
+      <p><b>Model central idea:</b> Interacting with animals can benefit both people and animals, and scientists are now studying this with real data.</p>
+      <p><b>Model evidence:</b> Shelter dogs in Johnson's dog-walking group were "significantly more likely to be adopted," while the volunteers who walked them exercised more. This is strong because it comes from a research study, not just a feeling, and it shows a benefit for both people and animals.</p>
+      <h3>Score yourself (be honest!)</h3>
+      <p>Central idea: 
+        <select class="score">
+          <option value="0">0 – missing or inaccurate</option>
+          <option value="1">1 – partly clear</option>
+          <option value="2">2 – clear and accurate</option>
+        </select></p>
+      <p>Strongest evidence: 
+        <select class="score">
+          <option value="0">0 – missing or inaccurate</option>
+          <option value="1">1 – partly clear; citation or explanation missing</option>
+          <option value="2">2 – specific, cited, and explained</option>
+        </select></p>
+      <button class="btn" id="total">Add my score</button>
+      <h3 id="totalScore"></h3>
+    </div>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { tag:"Vocabulary", q:"In the article, 'bucolic' describes the NIH grounds. What does bucolic mean?",
+    a:["Crowded and noisy","Like the countryside","Very modern"], c:1,
+    f:"Bucolic means like the countryside. The footnote defines it that way." },
+  { tag:"Vocabulary", q:"Which sentence uses 'premise' correctly?",
+    a:["The premise of the study is that animals are good for people.","She premised across the field.","The dog was very premise."], c:0,
+    f:"A premise is an idea thought to be true. Johnson says this premise needs scientific proof." },
+  { tag:"Key Details", q:"What does Vi do at the Children's Inn?",
+    a:["She treats sick children with medicine","She greets families and brightens spirits","She trains other guide dogs"], c:1,
+    f:"Vi greets families, and Meredith Daly says she brightens the spirits of kids, adults, and staff." },
+  { tag:"Evidence", q:"Which detail is the BEST evidence that pets may help physical health?",
+    a:["Vi has a wagging tail","An early study found heart attack patients with pets lived longer","The Children's Inn is on the NIH campus"], c:1,
+    f:"A research finding is stronger evidence than a description. (It shows a link, but not proof that pets alone cause longer life.)" },
+  { tag:"Key Details", q:"What does the article say oxytocin does?",
+    a:["It makes dogs easier to train","It helps us feel happy and trusting and may prepare the body to heal","It cures illness right away"], c:1,
+    f:"Johnson says oxytocin helps us feel happy and trusting and may help the body be ready to heal." },
+  { tag:"Evidence", q:"Which detail best supports the claim that horseback riding helped Ryan's speech?",
+    a:["Happy is a speckled pony","Coleman says she gets more language and processing since he started riding","Ryan rode bareback"], c:1,
+    f:"Coleman's observation connects riding directly to speech improvement. The other details do not." },
+  { tag:"Inference", q:"Why might training shelter dogs help veterans readjust to being at home?",
+    a:["Caring for and training a dog may give them purpose and connection","Dogs are cheaper than therapy","Veterans already know all dog commands"], c:0,
+    f:"The article says the research is early, so this is an inference: caring for a dog may help veterans rebuild routines and connections." },
+  { tag:"Author's Purpose", q:"Why does Rovner end with Johnson's warning about 'warm fuzzy feelings'?",
+    a:["To make readers laugh","To show this field needs scientific data, not just good feelings","To say pets don't help people"], c:1,
+    f:"Rovner wants readers to see why scientific research and NIH funding matter." }
+];
+
+let i = 0, score = 0, answered = false;
+const $ = id => document.getElementById(id);
+
+function show() {
+  answered = false;
+  const item = questions[i];
+  $("progress").textContent = `Question ${i+1} of ${questions.length} | Score: ${score}`;
+  $("tag").textContent = item.tag;
+  $("question").textContent = item.q;
+  $("feedback").textContent = "";
+  $("next").classList.add("hidden");
+  $("choices").innerHTML = "";
+  item.a.forEach((t, idx) => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.textContent = t;
+    b.onclick = () => pick(idx, b);
+    $("choices").appendChild(b);
+  });
+}
+
+function pick(idx, btn) {
+  if (answered) return;
+  answered = true;
+  const item = questions[i];
+  const btns = document.querySelectorAll(".choice");
+  if (idx === item.c) { score++; btn.classList.add("correct"); $("feedback").textContent = "✅ Correct! " + item.f; }
+  else { btn.classList.add("wrong"); btns[item.c].classList.add("correct"); $("feedback").textContent = "❌ Not quite. " + item.f; }
+  $("progress").textContent = `Question ${i+1} of ${questions.length} | Score: ${score}`;
+  $("next").classList.remove("hidden");
+}
+
+$("next").onclick = () => {
+  i++;
+  if (i < questions.length) show();
+  else {
+    $("quiz").classList.add("hidden");
+    $("progress").textContent = `Quiz score: ${score} out of ${questions.length}. Now finish the exit ticket!`;
+    $("exit").classList.remove("hidden");
+  }
+};
+
+$("showModel").onclick = () => { $("model").style.display = "block"; };
+$("total").onclick = () => {
+  const t = [...document.querySelectorAll(".score")].reduce((s, e) => s + Number(e.value), 0);
+  $("totalScore").textContent = `Exit ticket score: ${t} out of 4`;
+};
+
+show();
+</script>
+</body>
+</html>
